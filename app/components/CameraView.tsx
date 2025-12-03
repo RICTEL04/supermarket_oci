@@ -118,14 +118,22 @@ export function CameraView({ isOpen, onClose, isListening, isSpeaking, onMicTogg
         <div className="absolute bottom-4 left-0 right-0 flex flex-col items-center gap-4">
           {/* Microphone Button - Accessible even with camera open */}
           <button
-            onMouseDown={onMicToggle}
-            onMouseUp={onMicToggle}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              onMicToggle();
+            }}
+            onMouseUp={(e) => {
+              e.preventDefault();
+              onMicToggle();
+            }}
             onTouchStart={(e) => {
               e.preventDefault();
+              e.stopPropagation();
               onMicToggle();
             }}
             onTouchEnd={(e) => {
               e.preventDefault();
+              e.stopPropagation();
               onMicToggle();
             }}
             onContextMenu={(e) => e.preventDefault()}
@@ -134,9 +142,9 @@ export function CameraView({ isOpen, onClose, isListening, isSpeaking, onMicTogg
               WebkitTouchCallout: 'none',
               WebkitUserSelect: 'none',
               userSelect: 'none',
-              touchAction: 'none'
+              touchAction: 'manipulation'
             }}
-            className={`w-32 h-32 rounded-full flex items-center justify-center transition-all duration-300 shadow-2xl select-none ${
+            className={`w-32 h-32 rounded-full flex items-center justify-center transition-all duration-300 shadow-2xl select-none active:scale-95 ${
               isListening
                 ? 'bg-red-500 hover:bg-red-600 animate-pulse'
                 : 'bg-blue-600 hover:bg-blue-700'

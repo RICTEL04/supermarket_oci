@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Touch & Audio Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .test-button {
+            width: 100%;
+            padding: 30px;
+            margin: 15px 0;
+            border: none;
+            border-radius: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        .test-button:active {
+            transform: scale(0.95);
+        }
+        
+        .test-audio {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .test-audio:active {
+            background: #45a049;
+        }
+        
+        .test-touch {
+            background: #2196F3;
+            color: white;
+        }
+        
+        .test-touch:active {
+            background: #0b7dda;
+        }
+        
+        .test-hold {
+            background: #FF9800;
+            color: white;
+        }
+        
+        .test-hold:active,
+        .test-hold.holding {
+            background: #F57C00;
+        }
+        
+        .log {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #4CAF50;
+            padding-left: 10px;
+        }
+        
+        .clear-log {
+            background: #f44336;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Touch & Audio Test</h1>
+        
+        <button class="test-button test-audio" onclick="testAudio()">
+            🔊 Test Audio (Tap Me)
+        </button>
+        
+        <button class="test-button test-touch" onclick="testTouch()">
+            👆 Test Touch (Tap Me)
+        </button>
+        
+        <button 
+            class="test-button test-hold" 
+            id="holdButton"
+            ontouchstart="startHold(event)"
+            ontouchend="endHold(event)"
+            onmousedown="startHold(event)"
+            onmouseup="endHold(event)"
+        >
+            ⏱️ Test Hold (Press & Hold)
+        </button>
+        
+        <div class="log" id="log">
+            <div class="log-entry">📝 Test log - tap buttons above</div>
+        </div>
+        
+        <button class="clear-log" onclick="clearLog()">Clear Log</button>
+    </div>
+    
+    <script>
+        let holdStartTime = 0;
+        
+        function addLog(message, color = '#4CAF50') {
+            const log = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.style.borderLeftColor = color;
+            entry.textContent = `${new Date().toLocaleTimeString()} - ${message}`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        function testAudio() {
+            addLog('🔊 Testing audio...', '#4CAF50');
+            
+            // Check if speech synthesis is available
+            if (!window.speechSynthesis) {
+                addLog('❌ Speech Synthesis NOT available', '#f44336');
+                return;
+            }
+            
+            addLog('✅ Speech Synthesis available', '#4CAF50');
+            
+            // Get voices
+            const voices = window.speechSynthesis.getVoices();
+            addLog(`📢 Found ${voices.length} voices`, '#2196F3');
+            
+            if (voices.length > 0) {
+                const englishVoice = voices.find(v => v.lang.startsWith('en'));
+                addLog(`🎙️ Using: ${englishVoice ? englishVoice.name : voices[0].name}`, '#2196F3');
+            }
+            
+            // Speak
+            const utterance = new SpeechSynthesisUtterance('Audio test successful');
+            utterance.lang = 'en-US';
+            
+            utterance.onstart = () => addLog('🗣️ Started speaking', '#4CAF50');
+            utterance.onend = () => addLog('✅ Finished speaking', '#4CAF50');
+            utterance.onerror = (e) => addLog(`❌ Error: ${e.error}`, '#f44336');
+            
+            window.speechSynthesis.speak(utterance);
+        }
+        
+        function testTouch() {
+            addLog('👆 Touch event detected!', '#2196F3');
+            addLog('✅ Touch is working correctly', '#4CAF50');
+        }
+        
+        function startHold(event) {
+            event.preventDefault();
+            holdStartTime = Date.now();
+            document.getElementById('holdButton').classList.add('holding');
+            addLog('⏱️ Hold started', '#FF9800');
+        }
+        
+        function endHold(event) {
+            event.preventDefault();
+            const holdDuration = Date.now() - holdStartTime;
+            document.getElementById('holdButton').classList.remove('holding');
+            addLog(`⏱️ Hold ended - Duration: ${holdDuration}ms`, '#FF9800');
+            
+            if (holdDuration > 500) {
+                addLog('✅ Long press detected (good for voice input)', '#4CAF50');
+            } else {
+                addLog('⚠️ Short press - try holding longer', '#FFC107');
+            }
+        }
+        
+        function clearLog() {
+            document.getElementById('log').innerHTML = '<div class="log-entry">📝 Log cleared</div>';
+        }
+        
+        // Load voices on page load
+        window.speechSynthesis.onvoiceschanged = () => {
+            const voices = window.speechSynthesis.getVoices();
+            addLog(`🎙️ Voices loaded: ${voices.length} available`, '#2196F3');
+        };
+        
+        // Initial load
+        setTimeout(() => {
+            const voices = window.speechSynthesis.getVoices();
+            if (voices.length > 0) {
+                addLog(`🎙️ Initial voices: ${voices.length} available`, '#2196F3');
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

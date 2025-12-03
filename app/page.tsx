@@ -1,3 +1,22 @@
+/**
+ * OCI Voice Shopping Assistant
+ * 
+ * MOBILE AUDIO TESTING:
+ * If audio doesn't work on mobile, open browser console and run:
+ * 
+ * // Test speech synthesis
+ * const synth = window.speechSynthesis;
+ * const utterance = new SpeechSynthesisUtterance('Testing audio');
+ * synth.speak(utterance);
+ * 
+ * // Check voices
+ * console.log('Available voices:', synth.getVoices().map(v => v.name + ' (' + v.lang + ')'));
+ * 
+ * MOBILE TOUCH TESTING:
+ * The blue button should respond to touch. Check console for:
+ * "👆 Touch start detected" and "👆 Touch end detected"
+ */
+
 'use client'
 import { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff, Volume2, ChevronDown, ChevronUp, Keyboard, Plus, X as XIcon, MapPin } from 'lucide-react';
@@ -23,6 +42,7 @@ export default function App() {
   const [textInput, setTextInput] = useState('');
   const [showAllZones, setShowAllZones] = useState(false);
   const [audioReady, setAudioReady] = useState(false);
+  const [micPermission, setMicPermission] = useState<'granted' | 'denied' | 'prompt' | 'unknown'>('unknown');
   
   const recognitionRef = useRef<any>(null);
   const synthRef = useRef<SpeechSynthesis | null>(null);
@@ -35,6 +55,25 @@ export default function App() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       synthRef.current = window.speechSynthesis;
+      
+      // Verificar permisos del micrófono
+      if (navigator.permissions && navigator.permissions.query) {
+        navigator.permissions.query({ name: 'microphone' as PermissionName })
+          .then((permissionStatus) => {
+            console.log('🎤 Microphone permission:', permissionStatus.state);
+            setMicPermission(permissionStatus.state as any);
+            
+            // Listener para cambios en permisos
+            permissionStatus.onchange = () => {
+              console.log('🎤 Microphone permission changed to:', permissionStatus.state);
+              setMicPermission(permissionStatus.state as any);
+            };
+          })
+          .catch((error) => {
+            console.log('⚠️ Could not query microphone permission:', error);
+            setMicPermission('unknown');
+          });
+      }
       
       // Cargar voces de forma asíncrona (necesario en algunos navegadores móviles)
       const loadVoices = () => {
@@ -107,7 +146,16 @@ export default function App() {
           } else if (event.error === 'audio-capture') {
             speak('No microphone detected. Please check permissions.');
           } else if (event.error === 'not-allowed') {
-            speak('Microphone permission denied. Please allow microphone access.');
+            console.error('❌ MICROPHONE PERMISSION DENIED');
+            alert('🎤 Microphone Access Blocked!\n\n' +
+                  'OCI needs microphone permission to work.\n\n' +
+                  '📍 How to fix:\n' +
+                  '1. Click the 🔒 lock icon in the address bar\n' +
+                  '2. Find "Microphone" setting\n' +
+                  '3. Change to "Allow"\n' +
+                  '4. Refresh this page\n\n' +
+                  'Or go to: chrome://settings/content/microphone');
+            speak('Microphone permission denied. Please click the lock icon in the address bar and allow microphone access, then refresh the page.');
           }
           
           setIsListening(false);
@@ -142,46 +190,61 @@ export default function App() {
 
   // Introducción de OCI al cargar la página
   useEffect(() => {
-    // En móviles, la síntesis de voz requiere una interacción del usuario primero
-    // Por eso esperamos a que el usuario toque la pantalla
-    const initSpeech = () => {
-      if (synthRef.current && !hasIntroduced) {
-        // "Despertar" el speech synthesis con un utterance silencioso
-        const silentUtterance = new SpeechSynthesisUtterance('');
-        synthRef.current.speak(silentUtterance);
+    // NO intentar reproducir automáticamente - SIEMPRE requerir interacción del usuario
+    // Esto evita errores "not-allowed" en Chrome/Edge
+    
+    const handleFirstInteraction = (e: Event) => {
+      console.log('👆 User interaction detected, enabling audio');
+      setAudioReady(true);
+      
+      if (!hasIntroduced && synthRef.current) {
+        console.log('🎵 Initializing speech synthesis after user interaction...');
         
-        setTimeout(() => {
-          const introduction = "Hello, I am Oci, your voice assistant for supermarket shopping. To begin, press and hold the large blue button, then say I need followed by your products, for example, I need milk and bread. Release the button when finished speaking. If you need help or want to know the available commands, just ask me.";
-          speak(introduction, () => {
-            setHasIntroduced(true);
-          });
-        }, 500);
+        // Utterance de prueba para activar el sistema
+        const testUtterance = new SpeechSynthesisUtterance('Audio enabled');
+        testUtterance.volume = 0.01;
+        testUtterance.rate = 2;
+        
+        testUtterance.onend = () => {
+          console.log('✅ Speech synthesis activated');
+          setTimeout(() => {
+            const introduction = "Hello, I am Oci, your voice assistant for supermarket shopping. To begin, press and hold the large blue button, then say I need followed by your products, for example, I need milk and bread. Release the button when finished speaking. If you need help or want to know the available commands, just ask me.";
+            speak(introduction, () => {
+              setHasIntroduced(true);
+            });
+          }, 200);
+        };
+        
+        testUtterance.onerror = (error) => {
+          console.warn('⚠️ Speech test failed, trying direct introduction:', error);
+          // Intentar directamente si el test falla
+          setTimeout(() => {
+            const introduction = "Hello, I am Oci, your voice assistant for supermarket shopping. To begin, press and hold the large blue button, then say I need followed by your products, for example, I need milk and bread. Release the button when finished speaking. If you need help or want to know the available commands, just ask me.";
+            speak(introduction, () => {
+              setHasIntroduced(true);
+            });
+          }, 200);
+        };
+        
+        try {
+          synthRef.current.speak(testUtterance);
+        } catch (error) {
+          console.error('Error in speech test:', error);
+        }
       }
     };
     
-    // Intentar reproducir automáticamente (funciona en desktop)
-    const timer = setTimeout(() => {
-      initSpeech();
-    }, 1500);
-    
-    // En móviles, esperar a la primera interacción del usuario
-    const handleFirstInteraction = () => {
-      if (!hasIntroduced) {
-        setAudioReady(true);
-        initSpeech();
-        // Remover el listener después de la primera interacción
-        document.removeEventListener('touchstart', handleFirstInteraction);
-        document.removeEventListener('click', handleFirstInteraction);
-      }
-    };
-    
-    document.addEventListener('touchstart', handleFirstInteraction, { once: true });
+    // Escuchar CUALQUIER interacción del usuario
+    document.addEventListener('touchstart', handleFirstInteraction, { once: true, passive: true });
     document.addEventListener('click', handleFirstInteraction, { once: true });
+    document.addEventListener('touchend', handleFirstInteraction, { once: true, passive: true });
+    document.addEventListener('keydown', handleFirstInteraction, { once: true });
     
     return () => {
-      clearTimeout(timer);
       document.removeEventListener('touchstart', handleFirstInteraction);
       document.removeEventListener('click', handleFirstInteraction);
+      document.removeEventListener('touchend', handleFirstInteraction);
+      document.removeEventListener('keydown', handleFirstInteraction);
     };
   }, [hasIntroduced]);
 
@@ -246,9 +309,24 @@ export default function App() {
       };
       
       utterance.onerror = (event) => {
-        console.error('❌ Speech error:', event.error);
+        // Filtrar errores normales que no son problemas reales
+        if (event.error === 'interrupted' || event.error === 'canceled') {
+          console.log('ℹ️ Speech interrupted (normal):', event.error);
+          setIsSpeaking(false);
+          isSpeakingRef.current = false;
+          // No ejecutar callback en interrupciones, el nuevo speech lo manejará
+          return;
+        }
+        
+        console.error('❌ Speech error:', event.error, '- Text:', text.substring(0, 30));
         setIsSpeaking(false);
         isSpeakingRef.current = false;
+        
+        // Si es error de permisos, dar información útil
+        if (event.error === 'not-allowed') {
+          console.error('💡 Tip: User interaction may be required before speech synthesis works.');
+          console.error('💡 Try clicking the yellow banner or any button first.');
+        }
         
         if (callback) {
           callback();
@@ -256,15 +334,24 @@ export default function App() {
       };
       
       console.log('🗣️ Speaking:', text.substring(0, 100) + '...');
-      synthRef.current.speak(utterance);
       
-      // Workaround para iOS - a veces necesita un "resume" para activarse
-      if (typeof navigator !== 'undefined' && /iPhone|iPad|iPod/.test(navigator.userAgent)) {
-        setTimeout(() => {
-          if (synthRef.current && synthRef.current.paused) {
-            synthRef.current.resume();
-          }
-        }, 100);
+      try {
+        synthRef.current.speak(utterance);
+        
+        // Workaround para iOS - a veces necesita un "resume" para activarse
+        if (typeof navigator !== 'undefined' && /iPhone|iPad|iPod/.test(navigator.userAgent)) {
+          setTimeout(() => {
+            if (synthRef.current && synthRef.current.paused) {
+              console.log('📱 iOS: Resuming paused speech');
+              synthRef.current.resume();
+            }
+          }, 100);
+        }
+      } catch (error) {
+        console.error('❌ Error calling speak():', error);
+        setIsSpeaking(false);
+        isSpeakingRef.current = false;
+        if (callback) callback();
       }
     }, 100);
   };
@@ -873,12 +960,8 @@ export default function App() {
     }
   };
 
-  const toggleMicrophone = (event?: React.MouseEvent | React.TouchEvent) => {
-    // Prevenir comportamiento por defecto en móviles
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
+  const toggleMicrophone = () => {
+    console.log('🎤 toggleMicrophone called, isListening:', isListening, 'isSpeaking:', isSpeaking);
     
     // No permitir activar micrófono mientras el asistente habla
     if (isSpeaking) {
@@ -899,7 +982,19 @@ export default function App() {
             console.log('Recognition already active');
           } else {
             console.error('Error starting:', error);
-            speak('Error starting voice recognition.');
+            
+            // Si el error es de permisos, mostrar instrucciones
+            if (errorMessage.toLowerCase().includes('permission') || 
+                errorMessage.toLowerCase().includes('denied') ||
+                errorMessage.toLowerCase().includes('not-allowed')) {
+              alert('🎤 Microphone Permission Required\n\n' +
+                    'Click the 🔒 lock icon next to the URL and:\n' +
+                    '1. Set Microphone to "Allow"\n' +
+                    '2. Refresh the page\n\n' +
+                    'Chrome Settings: chrome://settings/content/microphone');
+            }
+            
+            speak('Error starting voice recognition. Please check microphone permissions.');
           }
         }
       } else {
@@ -923,16 +1018,92 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-gray-100 flex flex-col items-center justify-start p-4 md:p-8">
 
-      {/* Audio Activation Banner for Mobile - Only show if audio not ready */}
-      {!audioReady && !hasIntroduced && (
-        <div className="w-full max-w-2xl mb-4 bg-yellow-100 border-2 border-yellow-400 rounded-2xl p-4 shadow-lg animate-pulse">
-          <div className="flex items-center gap-3">
-            <Volume2 className="w-6 h-6 text-yellow-700 flex-shrink-0" />
-            <p className="text-yellow-900 font-semibold">
-              📱 <strong>Tap anywhere</strong> to enable voice assistant audio on your device
-            </p>
+      {/* Microphone Permission Denied Banner */}
+      {micPermission === 'denied' && (
+        <div className="w-full max-w-2xl mb-4 bg-red-100 border-2 border-red-400 rounded-2xl p-6 shadow-lg">
+          <div className="flex items-start gap-3">
+            <Mic className="w-8 h-8 text-red-700 flex-shrink-0 mt-1" />
+            <div>
+              <p className="text-red-900 font-bold text-lg mb-2">
+                🚫 Microphone Access Blocked
+              </p>
+              <p className="text-red-800 text-sm mb-3">
+                OCI needs microphone permission to listen to your voice commands.
+              </p>
+              <div className="bg-red-50 border border-red-300 rounded-lg p-3 text-sm text-red-900">
+                <p className="font-semibold mb-1">How to fix:</p>
+                <ol className="list-decimal list-inside space-y-1">
+                  <li>Click the <strong>🔒 lock icon</strong> in your browser's address bar</li>
+                  <li>Find <strong>"Microphone"</strong> and change it to <strong>"Allow"</strong></li>
+                  <li>Refresh this page</li>
+                </ol>
+                <p className="mt-2 text-xs">
+                  Or visit: <code className="bg-red-200 px-1 rounded">chrome://settings/content/microphone</code>
+                </p>
+              </div>
+            </div>
           </div>
         </div>
+      )}
+
+      {/* Audio Activation Banner - ALWAYS show until user interacts */}
+      {!audioReady && (
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            console.log('🔊 Audio activation banner clicked');
+            
+            // Marcar como listo
+            setAudioReady(true);
+            
+            // Activar speech synthesis
+            if (synthRef.current && !hasIntroduced) {
+              const testUtterance = new SpeechSynthesisUtterance('Audio enabled');
+              testUtterance.volume = 0.01;
+              testUtterance.rate = 2;
+              
+              testUtterance.onend = () => {
+                console.log('✅ Speech synthesis test successful');
+                setTimeout(() => {
+                  const introduction = "Hello, I am Oci, your voice assistant for supermarket shopping. To begin, press and hold the large blue button, then say I need followed by your products, for example, I need milk and bread. Release the button when finished speaking. If you need help or want to know the available commands, just ask me.";
+                  speak(introduction, () => {
+                    setHasIntroduced(true);
+                  });
+                }, 200);
+              };
+              
+              testUtterance.onerror = (error) => {
+                console.error('❌ Speech synthesis test failed:', error);
+                // Intentar de todas formas
+                setTimeout(() => {
+                  const introduction = "Hello, I am Oci, your voice assistant for supermarket shopping. To begin, press and hold the large blue button, then say I need followed by your products, for example, I need milk and bread. Release the button when finished speaking. If you need help or want to know the available commands, just ask me.";
+                  speak(introduction, () => {
+                    setHasIntroduced(true);
+                  });
+                }, 200);
+              };
+              
+              try {
+                synthRef.current.speak(testUtterance);
+              } catch (error) {
+                console.error('❌ Error in speech test:', error);
+              }
+            }
+          }}
+          className="w-full max-w-2xl mb-4 bg-yellow-400 hover:bg-yellow-500 border-2 border-yellow-600 rounded-2xl p-6 shadow-lg animate-pulse cursor-pointer transition-all active:scale-98"
+        >
+          <div className="flex items-center justify-center gap-3">
+            <Volume2 className="w-8 h-8 text-yellow-900 flex-shrink-0" />
+            <div className="text-center">
+              <p className="text-yellow-900 font-bold text-lg">
+                🔊 CLICK HERE to Enable Voice Assistant
+              </p>
+              <p className="text-yellow-800 text-sm mt-1">
+                (Required by browser - one time only)
+              </p>
+            </div>
+          </div>
+        </button>
       )}
 
       {/* Mode Toggle - Large and Accessible */}
@@ -943,7 +1114,7 @@ export default function App() {
             className={`flex-1 py-4 px-6 rounded-xl font-bold text-lg transition-all duration-300 flex items-center justify-center gap-3 ${
               mode === 'voice'
                 ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
             }`}
             aria-label="Voice Assistant Mode"
           >
@@ -955,7 +1126,7 @@ export default function App() {
             className={`flex-1 py-4 px-6 rounded-xl font-bold text-lg transition-all duration-300 flex items-center justify-center gap-3 ${
               mode === 'text'
                 ? 'bg-green-600 text-white shadow-md'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
             }`}
             aria-label="Text Input Mode"
           >
@@ -971,15 +1142,27 @@ export default function App() {
           {/* Large Microphone Button */}
           <div className="flex-1 flex items-center justify-center w-full max-w-2xl mb-8">
             <button
-              onMouseDown={toggleMicrophone}
-              onMouseUp={toggleMicrophone}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                console.log('👆 Mouse down detected');
+                toggleMicrophone();
+              }}
+              onMouseUp={(e) => {
+                e.preventDefault();
+                console.log('👆 Mouse up detected');
+                toggleMicrophone();
+              }}
               onTouchStart={(e) => {
                 e.preventDefault();
-                toggleMicrophone(e);
+                e.stopPropagation();
+                console.log('👆 Touch start detected');
+                toggleMicrophone();
               }}
               onTouchEnd={(e) => {
                 e.preventDefault();
-                toggleMicrophone(e);
+                e.stopPropagation();
+                console.log('👆 Touch end detected');
+                toggleMicrophone();
               }}
               onContextMenu={(e) => e.preventDefault()}
               style={{
@@ -987,9 +1170,9 @@ export default function App() {
                 WebkitTouchCallout: 'none',
                 WebkitUserSelect: 'none',
                 userSelect: 'none',
-                touchAction: 'none'
+                touchAction: 'manipulation'
               }}
-              className={`w-72 h-72 md:w-80 md:h-80 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-2xl border-8 select-none ${
+              className={`w-72 h-72 md:w-80 md:h-80 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-2xl border-8 select-none active:scale-95 ${
                 isListening
                   ? 'bg-red-500 hover:bg-red-600 animate-pulse border-red-300'
                   : 'bg-blue-600 hover:bg-blue-700 border-blue-400'
@@ -1018,7 +1201,7 @@ export default function App() {
               isListening ? 'bg-red-100 border-2 border-red-400' :
               'bg-blue-100 border-2 border-blue-400'
             }`}>
-              <p className="text-2xl md:text-3xl font-bold mb-2">
+              <p className="text-2xl md:text-3xl font-bold mb-2 text-gray-800">
                 {isSpeaking
                   ? '🔊 OCI is speaking...'
                   : waitingForConfirmation
@@ -1028,8 +1211,8 @@ export default function App() {
                   : '🎤 Ready to help!'}
               </p>
               {transcript && (
-                <p className="text-lg text-gray-700 mt-2">
-                  You said: <span className="font-semibold italic">"{transcript}"</span>
+                <p className="text-lg text-gray-900 font-medium mt-2">
+                  You said: <span className="font-bold italic">"{transcript}"</span>
                 </p>
               )}
             </div>
@@ -1065,12 +1248,12 @@ export default function App() {
             >
               <div className="flex items-center gap-3">
                 <Volume2 className="w-6 h-6 text-blue-600" />
-                <h3 className="text-xl font-bold">Quick Guide</h3>
+                <h3 className="text-xl font-bold text-gray-800">Quick Guide</h3>
               </div>
               {isGuideOpen ? (
-                <ChevronUp className="w-6 h-6 text-gray-600" />
+                <ChevronUp className="w-6 h-6 text-gray-900" />
               ) : (
-                <ChevronDown className="w-6 h-6 text-gray-600" />
+                <ChevronDown className="w-6 h-6 text-gray-900" />
               )}
             </button>
 
@@ -1081,7 +1264,7 @@ export default function App() {
                     <strong>💡 Need help?</strong> Say <strong>"Help"</strong> and OCI will guide you!
                   </p>
                 </div>
-                <ul className="space-y-3 text-base">
+                <ul className="space-y-3 text-base text-gray-800">
                   <li className="flex gap-2"><span className="font-bold">🛒</span> <span><strong>Shop:</strong> "I need milk and bread"</span></li>
                   <li className="flex gap-2"><span className="font-bold">✅</span> <span><strong>Confirm:</strong> Say "Yes"</span></li>
                   <li className="flex gap-2"><span className="font-bold">➕</span> <span><strong>Add:</strong> "Add apples"</span></li>
@@ -1098,7 +1281,7 @@ export default function App() {
           {routeData && (
             <div className="w-full max-w-4xl mb-8">
               <div className="bg-white rounded-2xl shadow-lg p-4">
-                <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-800">
                   <MapPin className="w-6 h-6 text-blue-600" />
                   Your Route Map
                 </h3>
@@ -1117,14 +1300,14 @@ export default function App() {
       {mode === 'text' && (
         <div className="w-full max-w-2xl space-y-6">
           <div className="bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-gray-800">
               <span className="text-3xl">✍️</span> Add Products
             </h2>
             
             {/* Header con checkbox para mostrar zonas */}
             <div className="flex items-center justify-between mb-4">
-              <label className="text-gray-700 font-semibold text-lg">Product List:</label>
-              <label className="flex items-center gap-2 text-sm text-gray-600">
+              <label className="text-gray-900 font-bold text-lg">Product List:</label>
+              <label className="flex items-center gap-2 text-sm text-gray-800">
                 <input
                   type="checkbox"
                   checked={showAllZones}
@@ -1193,7 +1376,7 @@ export default function App() {
             {/* Product List */}
             {productList.length > 0 && (
               <>
-                <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-800">
                   <span className="text-2xl">🛒</span> Shopping List ({productList.length})
                 </h3>
                 <div className={`space-y-3 mb-6 ${
@@ -1229,7 +1412,7 @@ export default function App() {
             )}
 
             {productList.length === 0 && (
-              <p className="text-center text-gray-500 py-8 text-lg">
+              <p className="text-center text-gray-800 font-medium py-8 text-lg">
                 No products added yet. Type a product name and click Add.
               </p>
             )}
@@ -1238,7 +1421,7 @@ export default function App() {
           {/* Store Map - Also visible in Text Mode */}
           {routeData && (
             <div className="bg-white rounded-2xl shadow-lg p-4">
-              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+              <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-800">
                 <MapPin className="w-6 h-6 text-green-600" />
                 Your Route Map
               </h3>

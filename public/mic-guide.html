@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microphone Permission Guide</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .guide-box {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            margin: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2563eb;
+            text-align: center;
+        }
+        h2 {
+            color: #1e40af;
+            border-bottom: 2px solid #3b82f6;
+            padding-bottom: 10px;
+        }
+        .step {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+        .step-number {
+            background: #3b82f6;
+            color: white;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .icon {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+        code {
+            background: #1e293b;
+            color: #10b981;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .test-button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 5px;
+            transition: all 0.3s;
+        }
+        .test-button:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .success {
+            background: #10b981;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        .error {
+            background: #ef4444;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        .warning {
+            background: #f59e0b;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        #result {
+            min-height: 50px;
+            margin-top: 20px;
+        }
+        .browser-bar {
+            background: #e5e7eb;
+            border-radius: 8px 8px 0 0;
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .lock-icon {
+            font-size: 20px;
+            background: #9ca3af;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .url-bar {
+            flex: 1;
+            background: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎤 Microphone Permission Guide</h1>
+    
+    <div class="guide-box">
+        <h2>Current Status</h2>
+        <div id="permission-status">
+            <p>Checking microphone permissions...</p>
+        </div>
+    </div>
+
+    <div class="guide-box">
+        <h2>Visual Guide</h2>
+        <p>When you visit OCI, Chrome shows a permission request. Here's where to look:</p>
+        
+        <div class="browser-bar">
+            <span class="lock-icon" title="Click here!">🔒</span>
+            <div class="url-bar">localhost:3000</div>
+            <span>⋮</span>
+        </div>
+        <div style="background: white; padding: 20px; border-radius: 0 0 8px 8px; border: 2px solid #3b82f6;">
+            <p style="margin: 0; color: #1e40af;">👆 <strong>Click the lock icon (🔒)</strong> and set Microphone to "Allow"</p>
+        </div>
+    </div>
+
+    <div class="guide-box">
+        <h2>Step-by-Step Instructions</h2>
+        
+        <div class="step">
+            <span class="step-number">1</span>
+            <strong>Look at your browser's address bar</strong> (where the URL is)
+        </div>
+        
+        <div class="step">
+            <span class="step-number">2</span>
+            Find the <strong>lock icon 🔒</strong> or <strong>info icon 🛈</strong> to the left of the URL
+        </div>
+        
+        <div class="step">
+            <span class="step-number">3</span>
+            <strong>Click on it</strong> - a menu will appear
+        </div>
+        
+        <div class="step">
+            <span class="step-number">4</span>
+            Look for <strong>"Microphone"</strong> in the menu
+        </div>
+        
+        <div class="step">
+            <span class="step-number">5</span>
+            Change it from "Block" to <strong>"Allow"</strong>
+        </div>
+        
+        <div class="step">
+            <span class="step-number">6</span>
+            <strong>Refresh the page</strong> (press F5 or click the refresh button)
+        </div>
+    </div>
+
+    <div class="guide-box">
+        <h2>Test Your Microphone</h2>
+        <p>Click the buttons below to test if your microphone is working:</p>
+        
+        <button class="test-button" onclick="checkPermission()">
+            🔍 Check Permission Status
+        </button>
+        
+        <button class="test-button" onclick="requestMicrophone()">
+            🎤 Request Microphone Access
+        </button>
+        
+        <button class="test-button" onclick="testSpeechRecognition()">
+            🗣️ Test Speech Recognition
+        </button>
+        
+        <div id="result"></div>
+    </div>
+
+    <div class="guide-box">
+        <h2>Quick Fixes</h2>
+        
+        <h3>Method 1: Direct Settings</h3>
+        <p>Open Chrome settings directly:</p>
+        <code>chrome://settings/content/microphone</code>
+        <p style="margin-top: 10px;">Make sure "Sites can ask to use your microphone" is enabled.</p>
+        
+        <h3>Method 2: Site Settings</h3>
+        <p>View all site permissions:</p>
+        <code>chrome://settings/content/all</code>
+        <p style="margin-top: 10px;">Find your site (localhost:3000) and reset permissions if needed.</p>
+        
+        <h3>Method 3: System Settings</h3>
+        <p><strong>Windows:</strong> Settings → Privacy → Microphone → Allow apps</p>
+        <p><strong>macOS:</strong> System Preferences → Security & Privacy → Privacy → Microphone</p>
+    </div>
+
+    <script>
+        // Check initial permission status
+        window.addEventListener('load', () => {
+            checkPermission();
+        });
+
+        function showResult(message, type = 'success') {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+
+        async function checkPermission() {
+            const statusDiv = document.getElementById('permission-status');
+            
+            try {
+                const result = await navigator.permissions.query({ name: 'microphone' });
+                
+                let statusHTML = '';
+                if (result.state === 'granted') {
+                    statusHTML = `<div class="success">
+                        <span class="icon">✅</span>
+                        <strong>Microphone Permission: GRANTED</strong>
+                        <p>Your microphone is ready to use! OCI will work correctly.</p>
+                    </div>`;
+                } else if (result.state === 'denied') {
+                    statusHTML = `<div class="error">
+                        <span class="icon">🚫</span>
+                        <strong>Microphone Permission: DENIED</strong>
+                        <p>You need to allow microphone access. Follow the steps above to fix this.</p>
+                    </div>`;
+                } else {
+                    statusHTML = `<div class="warning">
+                        <span class="icon">⏳</span>
+                        <strong>Microphone Permission: NOT SET</strong>
+                        <p>Chrome will ask for permission when you try to use the microphone.</p>
+                    </div>`;
+                }
+                
+                statusDiv.innerHTML = statusHTML;
+                showResult(`Permission state: <strong>${result.state}</strong>`, 
+                    result.state === 'granted' ? 'success' : (result.state === 'denied' ? 'error' : 'warning'));
+                
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="warning">
+                    <span class="icon">⚠️</span>
+                    <strong>Could not check permission status</strong>
+                    <p>This is normal on some browsers. Try requesting access directly.</p>
+                </div>`;
+                showResult(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function requestMicrophone() {
+            try {
+                showResult('Requesting microphone access... Please allow when prompted.', 'warning');
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                showResult('✅ <strong>Success!</strong> Microphone access granted. You can now use OCI.', 'success');
+                
+                // Stop the stream
+                stream.getTracks().forEach(track => track.stop());
+                
+                // Recheck permission
+                setTimeout(checkPermission, 500);
+                
+            } catch (error) {
+                if (error.name === 'NotAllowedError') {
+                    showResult(`❌ <strong>Permission Denied</strong><br>
+                        You clicked "Block" or permissions are disabled.<br>
+                        Follow the steps above to enable microphone access.`, 'error');
+                } else if (error.name === 'NotFoundError') {
+                    showResult('❌ <strong>No Microphone Found</strong><br>Please connect a microphone.', 'error');
+                } else {
+                    showResult(`❌ <strong>Error:</strong> ${error.message}`, 'error');
+                }
+            }
+        }
+
+        async function testSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            
+            if (!SpeechRecognition) {
+                showResult('❌ Speech Recognition is not supported in this browser.', 'error');
+                return;
+            }
+            
+            showResult('🎤 <strong>Listening...</strong> Say something!', 'warning');
+            
+            try {
+                const recognition = new SpeechRecognition();
+                recognition.lang = 'en-US';
+                
+                recognition.onstart = () => {
+                    showResult('🎤 <strong>Listening...</strong> Speak now!', 'warning');
+                };
+                
+                recognition.onresult = (event) => {
+                    const transcript = event.results[0][0].transcript;
+                    showResult(`✅ <strong>Heard:</strong> "${transcript}"`, 'success');
+                };
+                
+                recognition.onerror = (event) => {
+                    if (event.error === 'not-allowed') {
+                        showResult(`❌ <strong>Microphone Blocked</strong><br>
+                            Follow the steps above to allow microphone access.`, 'error');
+                    } else {
+                        showResult(`❌ <strong>Error:</strong> ${event.error}`, 'error');
+                    }
+                };
+                
+                recognition.start();
+                
+                // Auto-stop after 5 seconds
+                setTimeout(() => {
+                    recognition.stop();
+                }, 5000);
+                
+            } catch (error) {
+                showResult(`❌ <strong>Error:</strong> ${error.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
