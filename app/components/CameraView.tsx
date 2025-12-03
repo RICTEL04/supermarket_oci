@@ -120,9 +120,23 @@ export function CameraView({ isOpen, onClose, isListening, isSpeaking, onMicTogg
           <button
             onMouseDown={onMicToggle}
             onMouseUp={onMicToggle}
-            onTouchStart={onMicToggle}
-            onTouchEnd={onMicToggle}
-            className={`w-32 h-32 rounded-full flex items-center justify-center transition-all duration-300 shadow-2xl ${
+            onTouchStart={(e) => {
+              e.preventDefault();
+              onMicToggle();
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              onMicToggle();
+            }}
+            onContextMenu={(e) => e.preventDefault()}
+            style={{
+              WebkitTapHighlightColor: 'transparent',
+              WebkitTouchCallout: 'none',
+              WebkitUserSelect: 'none',
+              userSelect: 'none',
+              touchAction: 'none'
+            }}
+            className={`w-32 h-32 rounded-full flex items-center justify-center transition-all duration-300 shadow-2xl select-none ${
               isListening
                 ? 'bg-red-500 hover:bg-red-600 animate-pulse'
                 : 'bg-blue-600 hover:bg-blue-700'

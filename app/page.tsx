@@ -22,6 +22,7 @@ export default function App() {
   const [mode, setMode] = useState<'voice' | 'text'>('voice'); // 'voice' or 'text'
   const [textInput, setTextInput] = useState('');
   const [showAllZones, setShowAllZones] = useState(false);
+  const [audioReady, setAudioReady] = useState(false);
   
   const recognitionRef = useRef<any>(null);
   const synthRef = useRef<SpeechSynthesis | null>(null);
@@ -35,8 +36,35 @@ export default function App() {
     if (typeof window !== 'undefined') {
       synthRef.current = window.speechSynthesis;
       
-      // Inicializar reconocimiento de voz
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      // Cargar voces de forma asíncrona (necesario en algunos navegadores móviles)
+      const loadVoices = () => {
+        if (synthRef.current) {
+          const voices = synthRef.current.getVoices();
+          console.log('🎙️ Voices loaded:', voices.length);
+          if (voices.length > 0) {
+            console.log('Available voices:', voices.map(v => `${v.name} (${v.lang})`).join(', '));
+          }
+        }
+      };
+      
+      // Las voces pueden no estar disponibles inmediatamente
+      loadVoices();
+      
+      // En algunos navegadores, las voces se cargan de forma asíncrona
+      if (synthRef.current && 'onvoiceschanged' in synthRef.current) {
+        synthRef.current.onvoiceschanged = loadVoices;
+      }
+      
+      // Prevenir selección de texto en móviles
+      document.body.style.userSelect = 'none';
+      document.body.style.webkitUserSelect = 'none';
+      (document.body.style as any).webkitTouchCallout = 'none';
+      
+      // Inicializar reconocimiento de voz con soporte para múltiples navegadores
+      const SpeechRecognition = (window as any).SpeechRecognition || 
+                                (window as any).webkitSpeechRecognition || 
+                                (window as any).mozSpeechRecognition || 
+                                (window as any).msSpeechRecognition;
       if (SpeechRecognition) {
         const recognition = new SpeechRecognition();
         recognition.continuous = false; // Changed to false for push-to-talk
@@ -92,8 +120,8 @@ export default function App() {
 
         recognitionRef.current = recognition;
       } else {
-        alert('Your browser does not support voice recognition. Please use Chrome, Edge, or Safari.');
         console.error('Speech recognition not supported');
+        alert('⚠️ Voice recognition is not supported in this browser.\n\nPlease use:\n• Chrome (Desktop/Mobile)\n• Microsoft Edge\n• Safari (iOS)\n\nFor the best experience, we recommend Microsoft Edge or Chrome.');
       }
     }
 
@@ -105,26 +133,64 @@ export default function App() {
           console.log('Error stopping recognition on cleanup:', error);
         }
       }
+      // Restaurar selección de texto al desmontar
+      document.body.style.userSelect = '';
+      document.body.style.webkitUserSelect = '';
+      (document.body.style as any).webkitTouchCallout = '';
     };
   }, []);
 
   // Introducción de OCI al cargar la página
   useEffect(() => {
-    // Esperar un momento para que synthRef se inicialice
-    const timer = setTimeout(() => {
+    // En móviles, la síntesis de voz requiere una interacción del usuario primero
+    // Por eso esperamos a que el usuario toque la pantalla
+    const initSpeech = () => {
       if (synthRef.current && !hasIntroduced) {
-        const introduction = "Hello, I am Oci, your voice assistant for supermarket shopping. To begin, press and hold the large blue button, then say I need followed by your products, for example, I need milk and bread. Release the button when finished speaking. If you need help or want to know the available commands, just ask me.";
-        speak(introduction, () => {
-          setHasIntroduced(true);
-        });
+        // "Despertar" el speech synthesis con un utterance silencioso
+        const silentUtterance = new SpeechSynthesisUtterance('');
+        synthRef.current.speak(silentUtterance);
+        
+        setTimeout(() => {
+          const introduction = "Hello, I am Oci, your voice assistant for supermarket shopping. To begin, press and hold the large blue button, then say I need followed by your products, for example, I need milk and bread. Release the button when finished speaking. If you need help or want to know the available commands, just ask me.";
+          speak(introduction, () => {
+            setHasIntroduced(true);
+          });
+        }, 500);
       }
+    };
+    
+    // Intentar reproducir automáticamente (funciona en desktop)
+    const timer = setTimeout(() => {
+      initSpeech();
     }, 1500);
     
-    return () => clearTimeout(timer);
-  }, [hasIntroduced]); // Depende de hasIntroduced para reejecutarse cuando cambie
+    // En móviles, esperar a la primera interacción del usuario
+    const handleFirstInteraction = () => {
+      if (!hasIntroduced) {
+        setAudioReady(true);
+        initSpeech();
+        // Remover el listener después de la primera interacción
+        document.removeEventListener('touchstart', handleFirstInteraction);
+        document.removeEventListener('click', handleFirstInteraction);
+      }
+    };
+    
+    document.addEventListener('touchstart', handleFirstInteraction, { once: true });
+    document.addEventListener('click', handleFirstInteraction, { once: true });
+    
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('touchstart', handleFirstInteraction);
+      document.removeEventListener('click', handleFirstInteraction);
+    };
+  }, [hasIntroduced]);
 
   const speak = (text: string, callback?: () => void) => {
-    if (!synthRef.current) return;
+    if (!synthRef.current) {
+      console.error('❌ Speech synthesis not available');
+      if (callback) callback();
+      return;
+    }
 
     // Marcar que está hablando y detener reconocimiento
     setIsSpeaking(true);
@@ -138,29 +204,69 @@ export default function App() {
       }
     }
 
+    // Cancelar cualquier speech anterior
     synthRef.current.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-US';
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
     
-    utterance.onend = () => {
-      console.log('🔇 Finished speaking');
-      setIsSpeaking(false);
-      isSpeakingRef.current = false;
+    // Pequeña pausa para asegurar que se canceló
+    setTimeout(() => {
+      if (!synthRef.current) return;
       
-      if (callback) {
-        callback();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US';
+      utterance.rate = 0.9;
+      utterance.pitch = 1;
+      utterance.volume = 1; // Volumen máximo
+      
+      // En móviles, especialmente iOS, es importante seleccionar una voz
+      const voices = synthRef.current.getVoices();
+      if (voices.length > 0) {
+        // Buscar una voz en inglés, preferiblemente nativa
+        const englishVoice = voices.find(voice => 
+          voice.lang.startsWith('en') && voice.localService
+        ) || voices.find(voice => 
+          voice.lang.startsWith('en')
+        ) || voices[0];
+        
+        utterance.voice = englishVoice;
+        console.log('🔊 Using voice:', englishVoice.name);
       }
-    };
-    
-    utterance.onerror = () => {
-      console.log('Speech error');
-      setIsSpeaking(false);
-      isSpeakingRef.current = false;
-    };
-    
-    synthRef.current.speak(utterance);
+      
+      utterance.onstart = () => {
+        console.log('🔊 Started speaking:', text.substring(0, 50));
+      };
+      
+      utterance.onend = () => {
+        console.log('🔇 Finished speaking');
+        setIsSpeaking(false);
+        isSpeakingRef.current = false;
+        
+        if (callback) {
+          callback();
+        }
+      };
+      
+      utterance.onerror = (event) => {
+        console.error('❌ Speech error:', event.error);
+        setIsSpeaking(false);
+        isSpeakingRef.current = false;
+        
+        if (callback) {
+          callback();
+        }
+      };
+      
+      console.log('🗣️ Speaking:', text.substring(0, 100) + '...');
+      synthRef.current.speak(utterance);
+      
+      // Workaround para iOS - a veces necesita un "resume" para activarse
+      if (typeof navigator !== 'undefined' && /iPhone|iPad|iPod/.test(navigator.userAgent)) {
+        setTimeout(() => {
+          if (synthRef.current && synthRef.current.paused) {
+            synthRef.current.resume();
+          }
+        }, 100);
+      }
+    }, 100);
   };
 
   const handleVoiceCommand = async (command: string) => {
@@ -767,7 +873,13 @@ export default function App() {
     }
   };
 
-  const toggleMicrophone = () => {
+  const toggleMicrophone = (event?: React.MouseEvent | React.TouchEvent) => {
+    // Prevenir comportamiento por defecto en móviles
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    
     // No permitir activar micrófono mientras el asistente habla
     if (isSpeaking) {
       console.log('🔇 Cannot activate mic - assistant is speaking');
@@ -790,6 +902,9 @@ export default function App() {
             speak('Error starting voice recognition.');
           }
         }
+      } else {
+        console.warn('⚠️ Speech recognition not available in this browser');
+        alert('Voice recognition is not supported in this browser. Please use Chrome, Edge, or Safari.');
       }
     } else {
       // Stop listening when button is released
@@ -807,6 +922,18 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-gray-100 flex flex-col items-center justify-start p-4 md:p-8">
+
+      {/* Audio Activation Banner for Mobile - Only show if audio not ready */}
+      {!audioReady && !hasIntroduced && (
+        <div className="w-full max-w-2xl mb-4 bg-yellow-100 border-2 border-yellow-400 rounded-2xl p-4 shadow-lg animate-pulse">
+          <div className="flex items-center gap-3">
+            <Volume2 className="w-6 h-6 text-yellow-700 flex-shrink-0" />
+            <p className="text-yellow-900 font-semibold">
+              📱 <strong>Tap anywhere</strong> to enable voice assistant audio on your device
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Mode Toggle - Large and Accessible */}
       <div className="w-full max-w-2xl mb-6">
@@ -846,9 +973,23 @@ export default function App() {
             <button
               onMouseDown={toggleMicrophone}
               onMouseUp={toggleMicrophone}
-              onTouchStart={toggleMicrophone}
-              onTouchEnd={toggleMicrophone}
-              className={`w-72 h-72 md:w-80 md:h-80 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-2xl border-8 ${
+              onTouchStart={(e) => {
+                e.preventDefault();
+                toggleMicrophone(e);
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                toggleMicrophone(e);
+              }}
+              onContextMenu={(e) => e.preventDefault()}
+              style={{
+                WebkitTapHighlightColor: 'transparent',
+                WebkitTouchCallout: 'none',
+                WebkitUserSelect: 'none',
+                userSelect: 'none',
+                touchAction: 'none'
+              }}
+              className={`w-72 h-72 md:w-80 md:h-80 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-2xl border-8 select-none ${
                 isListening
                   ? 'bg-red-500 hover:bg-red-600 animate-pulse border-red-300'
                   : 'bg-blue-600 hover:bg-blue-700 border-blue-400'
