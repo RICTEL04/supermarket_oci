@@ -34,10 +34,10 @@ export function CameraView({ isOpen, onClose, isListening, isSpeaking, onMicTogg
       setIsLoading(true);
       setError('');
 
-      // Solicitar acceso a la cámara - preferir cámara frontal
+      // Solicitar acceso a la cámara - preferir cámara trasera en móviles
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: 'user', // 'user' = cámara frontal, 'environment' = cámara trasera
+          facingMode: { ideal: 'environment' }, // 'environment' = cámara trasera, 'user' = cámara frontal
           width: { ideal: 1280 },
           height: { ideal: 720 }
         },
